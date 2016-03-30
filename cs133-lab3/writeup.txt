@@ -1,0 +1,8 @@
+Melissa Galonsky and Kevin Heath
+CS133 Spring 2016 lab2
+
+There weren't many design decisions we made in lab2.  Our eviction policy varies on Java's internal implementation of a ConcurrentHashMap as we have a ConcurrentHashMap of pageids mapped to pages, and we get an iterator of the keys and simply evict the first page it returns.
+
+We made no changes to the API, and successfully completed all parts of the assignment.  While we didn't keep track of who worked on what exactly, we followed CS70 pair programming rules and switched who was driving frequently.
+
+We spent about 12 hours total on this assignment with the bulk of the time spent on Integer Aggregator.
