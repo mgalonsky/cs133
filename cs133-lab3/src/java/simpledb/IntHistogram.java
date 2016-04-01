@@ -33,6 +33,9 @@ public class IntHistogram {
     	this.max = max;
     	this.buckets = new int[buckets];
     	width = (max - min + 1) / buckets;
+    	if (width < 1) {
+    		width = 1;
+    	}
     	totalVals = 0;
     }
 
@@ -41,7 +44,9 @@ public class IntHistogram {
      * @param v Value to add to the histogram
      */
     public void addValue(int v) {
-    	buckets[(v-min)/width]++;
+    	int loc = (v-min)/width;
+    	loc = (loc < buckets.length? loc: buckets.length-1);
+    	buckets[loc]++;
     	totalVals++;
     }
 
@@ -52,7 +57,9 @@ public class IntHistogram {
      * @return the estimate
      */
     private double equals(int v) {
-    	return buckets[(v-min)/width]/((double)width * totalVals);
+    	int loc = (v-min)/width;
+    	loc = (loc < buckets.length? loc: buckets.length-1);
+    	return buckets[loc]/((double)width * totalVals);
     }
     
     /**
@@ -61,7 +68,9 @@ public class IntHistogram {
      * @return the estimate
      */
     private double greater(int v) {
-    	double num = buckets[(v-min)/width] * (1 - ((v-min) % width)/(double)width);
+    	int loc = (v-min)/width;
+    	loc = (loc < buckets.length? loc: buckets.length-1);
+    	double num = buckets[loc] * ((width - 1) - ((v-min) % width)/(double)width);
 		for(int i = (v - min)/width + 1; i < buckets.length; i++) {
 			num += buckets[i];
 		}
@@ -79,20 +88,46 @@ public class IntHistogram {
      * @return Predicted selectivity of this particular operator and value
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
-
     	switch(op) {
     	case EQUALS:
     	case LIKE:
+    		if(v < min || v > max) {
+    			return 0;
+    		}
     		return equals(v);
     	case GREATER_THAN:
+    		if(v < min) {
+    			return 1;
+    		} else if (v > max) {
+    			return 0;
+    		}
     		return greater(v);
     	case LESS_THAN:
+    		if (v < min) {
+    			return 0;
+    		} else if (v > max) {
+    			return 1;
+    		}
     		return 1 - equals(v) - greater(v);
     	case LESS_THAN_OR_EQ:
-    		return 1 - greater(v);
+    		if (v < min) {
+    			return 0;
+    		} else if (v > max) {
+    			return 1;
+    		}
+    		double temp = greater(v);
+    		return 1 - temp;
     	case GREATER_THAN_OR_EQ:
+    		if(v < min) {
+    			return 1;
+    		} else if (v > max) {
+    			return 0;
+    		}
     		return greater(v) + equals(v);
     	case NOT_EQUALS:
+    		if(v < min || v > max) {
+    			return 1;
+    		}
     		return 1 - equals(v);
 		default:
     		return 0.0;

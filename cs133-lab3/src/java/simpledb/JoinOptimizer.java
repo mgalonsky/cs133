@@ -107,12 +107,8 @@ public class JoinOptimizer {
 	    // Just finish the else case below
             return card1 + cost1 + cost2;
         } else {
-            // Insert your code here.
-
-            // HINT: You may need to use the variable "j" if you implemented
-            // a join algorithm that's more complicated than a basic
-            // nested-loops join.
-            return -1.0;
+        	return cost1 + card1 * cost2 //IO cost
+              + card1*card2;  //CPU cost
         }
     }
 
@@ -158,8 +154,22 @@ public class JoinOptimizer {
             String field2PureName, int card1, int card2, boolean t1pkey,
             boolean t2pkey, Map<String, TableStats> stats,
             Map<String, Integer> tableAliasToId) {
-
-	int card = 1;
+    int card = 0;
+	switch(joinOp) {
+	case EQUALS:
+		if (t1pkey || t2pkey) {
+			card = card1 < card2? card1: card2;
+		} else {
+			card = card1 > card2? card1: card2;
+		}
+		break;
+	case NOT_EQUALS:
+		card = (int) (card1*card2*.7);
+		break;
+	default:
+	card = 1;
+		break;
+	}
 
 	// some code goes here
         return card <= 0 ? 1 : card;
