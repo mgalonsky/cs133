@@ -1,8 +1,10 @@
-Melissa Galonsky and Kevin Heath
-CS133 Spring 2016 lab2
+Melissa Galonsky
+CS133 Spring 2016 lab4
 
-There weren't many design decisions we made in lab2.  Our eviction policy varies on Java's internal implementation of a ConcurrentHashMap as we have a ConcurrentHashMap of pageids mapped to pages, and we get an iterator of the keys and simply evict the first page it returns.
+One day late
 
-We made no changes to the API, and successfully completed all parts of the assignment.  While we didn't keep track of who worked on what exactly, we followed CS70 pair programming rules and switched who was driving frequently.
+The major deisgn decision centered around using the LockManger class and filling in its implementation.  There are two Hashmaps that keep track of the locks.  One keeps track of the number of locks out on a specific pid, with 0 representing that a write lock is out.  locks keeps track of each lock a specific transaction has.
 
-We spent about 12 hours total on this assignment with the bulk of the time spent on Integer Aggregator.
+Two additions were made to the public api.  BufferPool was given a getLockmgr method that gives out the lock manager for other classes to use if necessary.  Lock Manager was given a getPIDs method which returns all PIDs in use by a specific transaction by taking advantage of the fact that in order to get a page, you have to request a lock.
+
+I spent around 10 hours in total, most of which was spent chasing down bugs.

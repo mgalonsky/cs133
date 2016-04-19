@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -37,9 +38,9 @@ public class BufferPool {
     final ConcurrentHashMap<PageId,Page> pages; // hash table storing current pages in memory
     private final Random random = new Random(); // for choosing random pages for eviction
 
-    /** TODO for Lab 4: create your private Lock Manager class. 
-	Be sure to instantiate it in the constructor. */
     private final LockManager lockmgr; // Added for Lab 4
+    
+    private static final int lockAttempts = 10;  //The number of times a thread tries to acquire a lock before giving up
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -52,6 +53,15 @@ public class BufferPool {
 	this.pages = new ConcurrentHashMap<PageId, Page>();
 	
 	lockmgr = new LockManager(); // Added for Lab 4
+    }
+    
+    /**
+     * Returns the LockManager for other classes to use
+     * 
+     * @return The lock manager
+     */
+    public LockManager getLockmgr() {
+    	return lockmgr;
     }
     
     public static int getPageSize() {
@@ -157,9 +167,17 @@ public class BufferPool {
      */
     public void transactionComplete(TransactionId tid, boolean commit)
 	throws IOException {
-	// some code goes here
-	// not necessary for lab1|lab2
-	lockmgr.releaseAllLocks(tid, commit); // Added for Lab 4
+	    Iterator<PageId> iter = lockmgr.getPIDs(tid).iterator();
+	    if(commit) {
+	    	while (iter.hasNext()) {
+	    		flushPage(iter.next());
+	    	}
+	    } else { //The transaction is aborting so we throw out the changes.
+	    	while (iter.hasNext()) { 
+	    		pages.remove(iter.next());
+	    	}
+	    }
+    	lockmgr.releaseAllLocks(tid, commit); // Added for Lab 4
     }
     
     /**
@@ -285,30 +303,43 @@ public class BufferPool {
      * Discards a page from the buffer pool.
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
-    private synchronized  void evictPage() throws DbException {
-	// some code goes here
-	// not necessary for lab1
-	
-	// try to evict a random page, focusing first on finding one that is not dirty
-	// currently does not check for pages with uncommitted xacts, which could impact future labs
-	Object pids[] = pages.keySet().toArray();
-	PageId pid = (PageId) pids[random.nextInt(pids.length)];
-	
-	try {
-	    Page p = pages.get(pid);
-	    if (p.isDirty() != null) { // this one is dirty, try to find first non-dirty
-		for (PageId pg : pages.keySet()) {
-		    if (pages.get(pg).isDirty() == null) {
-			pid = pg;
-			break;
-		    }
-		}
-	    }
-	    flushPage(pid);
-	} catch (IOException e) {
-	    throw new DbException("could not evict page");
-	}
-	pages.remove(pid);
+    private synchronized void evictPage() throws DbException {
+    	/*Iterator<PageId> iter = pages.keySet().iterator();
+    	while(iter.hasNext()) {
+    		PageId next = iter.next();
+    		Page nextPg = pages.get(next);
+    		if (nextPg.isDirty() == null) {// The page isn't dirty and is safe to evict
+    			try {
+					flushPage(next);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+    			pages.remove(next);
+    			return;
+    		}
+    	}
+    	throw new DbException("Failed to evict page.  All pages dirty.");*/
+    	// some code goes here
+    	// not necessary for lab1
+    	
+    	// try to evict a random page, focusing first on finding one that is not dirty
+    	// currently does not check for pages with uncommitted xacts, which could impact future labs
+    	Object pids[] = pages.keySet().toArray();
+    	PageId pid;
+    	
+    	try {
+    		for (PageId pg : pages.keySet()) {
+    		    if (pages.get(pg).isDirty() == null) {
+    		    	pid = pg;
+    		    	flushPage(pid);
+    		    	pages.remove(pid);
+    		    	return;
+    		    }
+    		}throw new DbException("could not evict page");
+    	} catch (IOException e) {
+    	    throw new DbException("could not evict page");
+    	}
     }
     
     /**
@@ -350,12 +381,14 @@ public class BufferPool {
 	@SuppressWarnings("unchecked")
 	public boolean acquireLock(TransactionId tid, PageId pid, Permissions perm)
 	    throws DeadlockException {
-	    
+	    int i = 0;
 	    while(!lock(tid, pid, perm)) { // keep trying to get the lock
 		
 		synchronized(this) {
 		    // some code here for Exercise 5, deadlock detection
-		    
+		    if (i++ >= lockAttempts) {
+		    	throw new DeadlockException();
+		    }
 		}
 		
 		try {
@@ -379,7 +412,11 @@ public class BufferPool {
 	 * Check lab description to make sure you clean up appropriately depending on whether transaction commits or aborts
 	 */
 	public synchronized void releaseAllLocks(TransactionId tid, boolean commit) {
-	    // some code here
+	    PageId[] pids = new PageId[locks.get(tid).size()];
+	    getPIDs(tid).toArray(pids);
+	    for(int i = 0; i < pids.length; ++i) {
+	    	releaseLock(tid, pids[i]);
+	    }
 	    
 	}
 	
@@ -431,7 +468,7 @@ public class BufferPool {
 	    	if (count.get(pid) > 1) {
 	    		return true; //Multiple transactions have a read lock
 	    	}
-	    	if (locks.get(tid).containsKey(pid)) {
+	    	if (locks.containsKey(tid) && locks.get(tid).containsKey(pid)) {
 	    		return false; //This transaction has a lock on the page and since there is only one lock on the page,
 	    		 			  //it's the only transaction with a lock on the page.
 	    	}
@@ -457,7 +494,6 @@ public class BufferPool {
 	    default:
 	    	count.put(pid, count.get(pid) - 1);	
 	    }
-	    
 	}
 	
 	
@@ -469,8 +505,9 @@ public class BufferPool {
 	 */
 	private synchronized boolean lock(TransactionId tid, PageId pid, Permissions perm) {
 	    
-	    if(locked(tid, pid, perm)) 
-		return false; // this transaction cannot get the lock on this page; it is "locked out"
+	    if(locked(tid, pid, perm)) {
+	    	return false; // this transaction cannot get the lock on this page; it is "locked out"
+	    }
 	    
 	    if(!locks.containsKey(tid)) {
 	    	locks.put(tid, new HashMap<PageId, Permissions>());
@@ -481,12 +518,21 @@ public class BufferPool {
 	    	} else {
 	    		count.put(pid, 1);
 	    	}
-	    } else {
+	    } 
+	    if(perm == Permissions.READ_WRITE) {
 	    	count.put(pid, 0);
 	    }
 	    locks.get(tid).put(pid, perm);
 	    return true;
     }
+	
+	/**
+	 * Returns the pid for every page in use by a specific transaction
+	 *
+	 */
+	public synchronized Set<PageId> getPIDs(TransactionId tid) {
+		return locks.get(tid).keySet();
+	}
     }
     
 }

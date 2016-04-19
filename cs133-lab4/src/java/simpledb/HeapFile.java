@@ -140,7 +140,7 @@ public class HeapFile implements DbFile {
     	ArrayList<Page> affectedPages = new ArrayList<Page>();
     	for(int i = 0; i<numPages(); i++) {
     		HeapPageId pid = new HeapPageId(getId(), i);
-    		
+    		//Database.getBufferPool().getLockmgr().acquireLock(tid, pid, Permissions)
 			HeapPage pg = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
 			if(pg.getNumEmptySlots()>0){
 	    		pg.insertTuple(t);
@@ -152,12 +152,14 @@ public class HeapFile implements DbFile {
     		
     		
     	}
-    	HeapPageId newPid = new HeapPageId(getId(), numPages());
-    	HeapPage newPage = new HeapPage(newPid, HeapPage.createEmptyPageData());
-    	newPage.insertTuple(t);
-    	newPage.markDirty(true, tid);
-    	writePage(newPage);
-    	affectedPages.add(newPage);
+    	synchronized (this) {
+    		HeapPageId newPid = new HeapPageId(getId(), numPages());
+        	HeapPage newPage = new HeapPage(newPid, HeapPage.createEmptyPageData());
+    		newPage.insertTuple(t);
+        	newPage.markDirty(true, tid);
+        	writePage(newPage);
+        	affectedPages.add(newPage);
+		}
     	return affectedPages;
     	
     }
