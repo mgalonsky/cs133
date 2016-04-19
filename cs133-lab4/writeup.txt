@@ -7,4 +7,6 @@ The major deisgn decision centered around using the LockManger class and filling
 
 Two additions were made to the public api.  BufferPool was given a getLockmgr method that gives out the lock manager for other classes to use if necessary.  Lock Manager was given a getPIDs method which returns all PIDs in use by a specific transaction by taking advantage of the fact that in order to get a page, you have to request a lock.
 
+Some parts of the code don't quite work correctly.  In order to pass the provided lockingTest, each test must be run individually, otherwise one of them hangs for reasons that appear to be related to the itnernal functioning of Junit.  The eviction test fails and some of the tests in TransactionTest system test fail.
+
 I spent around 10 hours in total, most of which was spent chasing down bugs.
