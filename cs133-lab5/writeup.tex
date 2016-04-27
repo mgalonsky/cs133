@@ -1,0 +1,26 @@
+\documentclass{article}
+\usepackage{tipa}
+\usepackage{geometry}
+\usepackage{enumerate}
+\usepackage{graphicx}
+\begin{document}
+\begin{flushleft}
+Melissa Galonsky\\
+April 27, 2016\\
+\end{flushleft}
+\begin{enumerate}
+\item[Exercise 2]
+\begin{enumerate}[1.]
+\item For this assignment, FDs that make sense are\\ id $\rightarrow$ name phone\_number\\license\_plate\_number$\rightarrow$id(of owner) make\_and\_model capacity\\
+date direction license\_plate\_number $\rightarrow$ time\\
+(For a passenger) id date direction $\rightarrow$ license\_plate\_number
+\item
+Every relation except Trip is in BCNF.  Trip is not in BCNF because date direction license\_plate\_number is not a superkey for Trip. 
+\item
+The schema doesn't capture constraints around people or cars having a trip to and a trip from work each day or the ordering of the trips.
+\end{enumerate}
+\item[Exercise 3]
+I'm deciding to make no changes to schema and therefore not putting the schema into BCNF.  I'm doing this because breaking BCNF will allow joins on Trip and Person without requiring you to also join on Car.
+\end{enumerate}
+
+\end{document}
